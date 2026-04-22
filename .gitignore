@@ -1,0 +1,19 @@
+# Never commit credentials
+.env
+.env.*
+*.token
+*-token.json
+meta-ads-mcp-token*.json
+.claude.json
+.mcp.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
