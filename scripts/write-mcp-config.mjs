@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { loadToken } from "./_load-token.mjs";
 
 const [, , rawAdAccountId] = process.argv;
 
@@ -22,18 +23,11 @@ if (!rawAdAccountId) {
 
 const adAccountId = rawAdAccountId.startsWith("act_") ? rawAdAccountId : `act_${rawAdAccountId}`;
 
-const tokenPath = join(homedir(), ".meta-ads-mcp-token.json");
-let tokenFile;
+let token, tokenSource;
 try {
-  tokenFile = JSON.parse(readFileSync(tokenPath, "utf8"));
+  ({ token, source: tokenSource } = loadToken());
 } catch (e) {
-  console.error(`Could not read ${tokenPath}. Run exchange-token.mjs first.`);
-  process.exit(1);
-}
-
-const token = tokenFile.long_lived_access_token;
-if (!token) {
-  console.error(`No long_lived_access_token in ${tokenPath}.`);
+  console.error(e.message);
   process.exit(1);
 }
 

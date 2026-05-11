@@ -8,23 +8,13 @@
  * Reads: ~/.meta-ads-mcp-token.json (written by exchange-token.mjs)
  */
 
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { loadToken } from "./_load-token.mjs";
 
-const tokenPath = join(homedir(), ".meta-ads-mcp-token.json");
-
-let tokenFile;
+let token;
 try {
-  tokenFile = JSON.parse(readFileSync(tokenPath, "utf8"));
+  ({ token } = loadToken());
 } catch (e) {
-  console.error(`Could not read ${tokenPath}. Run exchange-token.mjs first.`);
-  process.exit(1);
-}
-
-const token = tokenFile.long_lived_access_token;
-if (!token) {
-  console.error(`No long_lived_access_token in ${tokenPath}.`);
+  console.error(e.message);
   process.exit(1);
 }
 
