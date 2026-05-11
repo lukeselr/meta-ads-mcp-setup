@@ -1,140 +1,162 @@
-# Manual Install — No Playwright, No Automation
+# Meta Ads MCP — Install Guide
 
-Use this if you're on Claude Desktop, or if you want to do the clicks yourself.
+Connect your Meta (Facebook + Instagram) ad account to Claude in ~10 minutes.
 
-Takes ~15 min the first time. You do this once per ad account.
+This guide covers TWO surfaces — pick the one you use. Most people want both.
 
 ---
 
-## 1. Install Node.js (if you don't have it)
+## TL;DR
 
-Open Terminal (Mac) or PowerShell (Windows).
+| Where you use Claude | Path | Time | Token to manage? |
+|---|---|---|---|
+| **claude.ai web** (browser chats) | Add Custom Connector → Meta's official MCP | 30 seconds | No — Anthropic handles OAuth |
+| **Claude Code CLI** (terminal / VS Code) | Install legacy `meta-ads-mcp` npm + your own OAuth token | 10 minutes | Yes — 60-day token, refresh script provided |
+
+You can do both. They don't conflict.
+
+---
+
+## Part 1 — claude.ai web (30 seconds)
+
+If you only use Claude in your browser, this is all you need.
+
+1. Open **https://claude.ai/settings/connectors**
+2. Click **Add custom connector**
+3. Paste: `https://mcp.facebook.com/ads`
+4. Click **Connect**
+5. Facebook OAuth popup → sign in if needed → **Authorize** → pick your ad account + scope **read+write**
+6. Done. The connector shows as **Connected** with 29 tools in your web chats.
+
+Use Claude.ai in your browser and ask "list my Meta ads campaigns" — it works.
+
+**For Claude Code CLI users, continue to Part 2.**
+
+---
+
+## Part 2 — Claude Code CLI (10 minutes)
+
+Meta's official MCP at `mcp.facebook.com/ads` only accepts OAuth tokens from clients on Meta's private allowlist. Anthropic's web client is on the allowlist; third-party CLI clients aren't. So in Claude Code CLI we run the **legacy MCP** with our own OAuth token.
+
+### What you'll have at the end
+
+- `meta-ads-mcp` running locally — 22 tools to control your campaigns
+- 60-day OAuth-issued token saved in `~/.claude/secrets/`
+- Your Meta App ID + Secret saved redundantly (file + keychain)
+- A refresh script you run every 60 days (or never if Anthropic ships a built-in Meta client first)
+
+### Pre-flight (1 min)
 
 ```bash
-node -v
+node -v       # need 18 or higher
+python3 -V    # need 3.9 or higher (built into macOS, no install)
 ```
 
-If it prints a version ≥ 18, skip to step 2. Otherwise download from [nodejs.org](https://nodejs.org/) (pick LTS) and install.
+If either is missing, install Node from [nodejs.org](https://nodejs.org/) (Python is built into macOS). Then come back.
 
----
-
-## 2. Install the Meta Ads MCP server
+### Step 1 — Install the MCP server (30 sec)
 
 ```bash
 npm install -g meta-ads-mcp
 ```
 
-If you see an EACCES permission error, run it with `sudo`:
-
-```bash
-sudo npm install -g meta-ads-mcp
-```
-
-Verify:
+If you see `EACCES`, prepend `sudo`. Verify it installed:
 
 ```bash
 which meta-ads-mcp
 ```
 
-Should print a path.
+You should see a path.
 
----
+### Step 2 — Create your Meta App (3 min)
 
-## 3. Create a Meta App
+> ⚠️ **BEFORE clicking Create**, go to [developers.facebook.com/apps/](https://developers.facebook.com/apps/) and check if you already have an app named "Claude Ads" or similar. **DELETE any duplicates** before continuing — multiple apps with the same name is the #1 cause of "wrong secret" failures later.
 
-1. Go to **[developers.facebook.com/apps](https://developers.facebook.com/apps/)**
-2. Log in with the Facebook account that has admin access to your ad account
-3. Click **Create App**
-4. "What do you want your app to do?" → pick **Other**
-5. App type → **Business**
-6. App name: `<Your Business> Claude Ads`. Email: auto-filled.
-7. Click **Create App**. Meta may ask for your password again.
-8. On the app dashboard, find **Marketing API** under "Add products to your app" and click **Set up**.
+1. Go to **[developers.facebook.com/apps](https://developers.facebook.com/apps/)** and click **Create App**
+2. "Use cases" → pick **Other**
+3. App type → **Business**
+4. App name: `<Your Business> Claude Ads`
+5. Email: whatever's pre-filled
+6. Business Portfolio: pick the one that owns your ad account
+7. Click **Create App** (FB may re-ask your password)
+8. On the dashboard, find **Marketing API** under "Add products to your app" → click **Set up**
 
----
+> 🚫 **DO NOT take the app Live.** Stay in Development Mode. Dev Mode is fine for your own ad account — it only restricts who else can use the app, which you don't care about.
+>
+> If Meta nags you about "Privacy Policy URL required to take your app Live", ignore it. You're not taking it Live.
 
-## 4. Grab the App ID + App Secret
+### Step 3 — Grab the App ID + App Secret (1 min, the trap step)
 
-1. In the left sidebar click **App settings → Basic**
-2. Copy the **App ID** (it's a long number)
-3. Click **Show** next to **App Secret**, paste your Facebook password if asked, copy the secret
+This is where most failures happen. **Use this direct URL** to land on the right app's settings:
 
-Keep them in a note — you'll need both in step 6.
+```
+https://developers.facebook.com/apps/<YOUR_APP_ID>/settings/basic/
+```
 
----
+Replace `<YOUR_APP_ID>` with the App ID at the top of your new app's dashboard.
 
-## 5. Generate an Access Token
+1. **App ID** — copy the long number at the top of the Basic settings page
+2. **App Secret** — click **Show** (FB asks your password), copy the 32-char hex string
 
-1. Go to **[developers.facebook.com/tools/accesstoken](https://developers.facebook.com/tools/accesstoken/)**
-2. Find your new app in the list
-3. On the **User Token** row for your app, click **Generate Token**
-4. A popup appears. Tick:
-   - ✅ `ads_read`
-   - ✅ `ads_management`
-   - ✅ `business_management` (if shown — enables multi-account)
-5. Click **Generate**. Meta asks for your password again.
-6. Copy the token (starts with `EAA`, ~200 chars long)
-
-This is a short-lived token. It expires in 1-2 hours. You'll upgrade it to a 60-day token in the next step.
-
----
-
-## 6. Exchange for a 60-day Long-Lived Token
-
-Clone this repo or download the `scripts/` folder. Then run:
+**Immediately verify them** to catch the wrong-app trap before it bites three steps later:
 
 ```bash
-cd scripts
-node exchange-token.mjs <APP_ID> <APP_SECRET> <SHORT_TOKEN>
+node scripts/verify-app-secret.mjs <APP_ID> <APP_SECRET>
 ```
 
-If it works, you'll see:
+Expected output: `✅  OK. App ID + Secret match. App access token minted.`
 
-```json
-{ "ok": true, "token_file": "~/.meta-ads-mcp-token.json", "expires_at": "2026-06-21T..." }
-```
+If you see `❌ WRONG SECRET` — you grabbed the secret from a different app. Re-open the direct URL above (with the right App ID), click Show again, copy carefully.
 
-Your long-lived token is now saved in `~/.meta-ads-mcp-token.json` (permissions 600 — readable only by you).
+### Step 4 — Run the OAuth catcher (2 min)
 
----
-
-## 7. Pick Your Ad Account
+The catcher is a tiny local web server that handles the entire OAuth dance automatically. You click "Authorize" once in Facebook; everything else is automated.
 
 ```bash
-node list-ad-accounts.mjs
+python3 scripts/oauth-catcher.py <APP_ID> <APP_SECRET>
 ```
 
-Output looks like:
+What happens:
+
+1. Catcher starts listening on `localhost:33418`
+2. Your default browser opens to Facebook's Authorize page
+3. **You click Continue / Authorize**, pick your ad accounts, pick scope **read+write**
+4. Facebook redirects to localhost — page shows "Got it. Close this tab"
+5. Catcher exchanges the code for a 60-day long-lived token
+6. Saves to `~/.claude/secrets/meta-oauth-token-longlived.json` (chmod 600)
+
+The catcher prints `DONE` when finished.
+
+### Step 5 — Pick your ad account (30 sec)
+
+```bash
+node scripts/list-ad-accounts.mjs
+```
+
+You'll see something like:
 
 ```json
 {
   "accounts": [
-    { "index": 1, "act": "act_491282504733048", "name": "Selr AI", "status": "ACTIVE" },
-    { "index": 2, "act": "act_887766554433221", "name": "Side Hustle", "status": "ACTIVE" }
+    { "index": 1, "act": "act_491282504733048", "name": "Your Business", "status": "ACTIVE" },
+    { "index": 2, "act": "act_887766554433221", "name": "Side Project", "status": "ACTIVE" }
   ]
 }
 ```
 
-Pick the `act_...` number you want Claude to control.
+Note the `act_...` ID you want Claude to control by default.
 
----
-
-## 8. Write the MCP Config
+### Step 6 — Write the MCP config (10 sec)
 
 ```bash
-node write-mcp-config.mjs act_491282504733048
+node scripts/write-mcp-config.mjs act_491282504733048
 ```
 
-(Replace with your own `act_...` from step 7.)
+(replace with YOUR `act_...` from Step 5)
 
-This patches your `~/.claude.json` and adds a `meta-ads` entry under `mcpServers`.
+This adds a `meta-ads` entry under `mcpServers` in `~/.claude.json` (and `~/.mcp.json` if it exists).
 
-If you're on **Claude Desktop** (not Claude Code), the config file lives at:
-
-- **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-Open it and paste this block under `mcpServers` (replace the token and act_ with yours):
+**Claude Desktop** users: open `~/Library/Application Support/Claude/claude_desktop_config.json` instead and paste:
 
 ```json
 {
@@ -143,7 +165,7 @@ Open it and paste this block under `mcpServers` (replace the token and act_ with
       "command": "meta-ads-mcp",
       "args": [],
       "env": {
-        "META_ACCESS_TOKEN": "EAA...yourlongtokenhere...",
+        "META_ACCESS_TOKEN": "<paste access_token from ~/.claude/secrets/meta-oauth-token-longlived.json>",
         "META_AD_ACCOUNT_ID": "act_491282504733048"
       }
     }
@@ -151,18 +173,16 @@ Open it and paste this block under `mcpServers` (replace the token and act_ with
 }
 ```
 
----
+### Step 7 — Fully restart Claude (10 sec)
 
-## 9. Restart Claude
+**Cmd-Q** on Mac (closing the window is NOT enough). On Windows: right-click the taskbar icon → Exit.
 
-**Completely quit** — Cmd+Q on Mac, close all windows on Windows — then reopen.
+Then reopen Claude. The MCP loads on startup.
 
----
-
-## 10. Test
+### Step 8 — Test (10 sec)
 
 ```bash
-node test-connection.mjs
+node scripts/test-connection.mjs
 ```
 
 Should print three `OK` lines ending with a campaign count.
@@ -173,18 +193,58 @@ Then in Claude, type:
 list my meta ads campaigns
 ```
 
-If Claude says it can see your campaigns, you're done. 🎯
+If Claude lists them — you're done.
 
 ---
 
-## When your token expires (60 days)
+## When your token expires (every 60 days)
 
-You'll get an "invalid OAuth token" error. Re-run steps 5 → 6 → 8:
+You'll get an "invalid OAuth access token" error. Re-run **just the catcher**:
 
-1. Generate a new short-lived token (step 5)
-2. Exchange for long-lived (step 6)
-3. Re-write config (step 8 — same account ID as before)
+```bash
+python3 scripts/oauth-catcher.py <APP_ID> <APP_SECRET>
+```
 
-Total time to refresh: 2 minutes.
+It writes a fresh token to the same file. Then run:
 
-If this gets annoying, reply to the email that sent you this skill and I'll ship a v2 that uses **System User tokens** (never expire) — they require a bit more Business Manager setup.
+```bash
+node scripts/write-mcp-config.mjs <act_...>
+```
+
+Restart Claude. ~2 min total.
+
+---
+
+## Where everything lives
+
+- **Long-lived token**: `~/.claude/secrets/meta-oauth-token-longlived.json` (chmod 600)
+- **App Secret backup** (recommended): macOS Keychain — `security add-generic-password -a meta-mcp-app-secret -s meta-mcp-app-secret -w "<your_secret>"`
+- **MCP config**: `~/.claude.json` → `mcpServers.meta-ads`
+
+Nothing leaves your machine. No cloud, no telemetry. Open source — read every script before you run it.
+
+---
+
+## Troubleshooting
+
+→ [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
+The 8 gotchas we've actually hit + the exact fix for each. Read this before asking for help.
+
+---
+
+## What about Meta's official MCP at mcp.facebook.com/ads?
+
+**Use it from claude.ai web (Part 1 above)** — works perfectly, no token to manage, Anthropic's pre-registered Meta client handles the OAuth.
+
+**It doesn't work from Claude Code CLI yet.** Meta has a private allowlist of clients allowed to hit `mcp.facebook.com/ads`. Anthropic's web client is on the list. Third-party OAuth apps (any app YOU create at developers.facebook.com) get rejected with `401 "restricted to certain users"` even when their tokens are perfectly scoped and valid against Marketing API. This is Meta's beta restriction, not a bug on your side.
+
+The legacy `meta-ads-mcp` npm path (Part 2 above) is your alternative until either:
+- Meta opens the allowlist for third-party clients, OR
+- Anthropic ships a built-in Meta client for Claude Code CLI
+
+When either happens, this guide will be updated and your existing setup migrates cleanly.
+
+---
+
+Built in Australia 🇦🇺 by [Selr AI](https://selrai.com.au). MIT licensed.

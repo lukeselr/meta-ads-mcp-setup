@@ -1,12 +1,36 @@
 # Troubleshooting
 
-The 6 things that usually break, and the fix for each.
+The 8 things that actually break in this setup, and the exact fix.
+
+These are not theoretical — every one of them has been triggered by a real user (including the author) and the fix below works. If you hit a 9th, reply to the SMS/email that sent you this kit.
 
 ---
 
-## 1. `command not found: meta-ads-mcp` after install
+## 1. `❌ WRONG SECRET` from `verify-app-secret.mjs`
 
-The npm global bin folder isn't on your PATH.
+You grabbed the App Secret from the wrong app. This happens when you have multiple Meta apps with similar names — clicking "Show" on the wrong one's row is silent until you try to OAuth.
+
+**Fix:**
+
+```
+https://developers.facebook.com/apps/<YOUR_APP_ID>/settings/basic/
+```
+
+Open that direct URL (with YOUR App ID — get it from your app's dashboard header). Click **Show** on App Secret on THAT page. Re-run `verify-app-secret.mjs`.
+
+If you still get wrong-secret, check `https://developers.facebook.com/apps/` for duplicates. Delete any extras at `https://developers.facebook.com/apps/<DUPLICATE_ID>/settings/advanced/` → bottom → **Delete App**.
+
+---
+
+## 2. `"Error validating client secret"` from Meta Graph API
+
+Same problem as #1 — secret doesn't match App ID. Fix is the same.
+
+---
+
+## 3. `command not found: meta-ads-mcp` after `npm install -g meta-ads-mcp`
+
+npm's global bin folder isn't on your PATH.
 
 **Mac (zsh):**
 ```bash
@@ -18,49 +42,63 @@ source ~/.zshrc
 
 ---
 
-## 2. `{"error": {"code": 190, "message": "Invalid OAuth access token"}}`
+## 4. `{"error":{"code":190,"message":"Invalid OAuth access token"}}`
 
-Your token is expired, revoked, or mistyped.
+Your token is expired, revoked, or wrong.
 
-- If it's been **over 60 days** since setup → token expired. Re-run steps 5-6-8 in [INSTALL.md](INSTALL.md).
-- If it's been **less than 2 hours** → you probably wrote the short-lived token to config instead of exchanging it. Run `scripts/exchange-token.mjs` with fresh short-lived input, then `scripts/write-mcp-config.mjs` again.
-- If you changed your Facebook password → all tokens revoke. Start over from step 5.
-
----
-
-## 3. `{"error": {"code": 100, "message": "Unsupported get request"}}` on `/me/adaccounts`
-
-Your token is missing the `ads_read` scope. Go back to step 5 in INSTALL.md, regenerate the token, and make sure `ads_read` AND `ads_management` are both ticked before you click **Generate**.
+- **Over 60 days since setup** → token expired. Re-run `python3 scripts/oauth-catcher.py <APP_ID> <APP_SECRET>` to get a fresh one.
+- **You changed your Facebook password** → all tokens revoke. Re-run the catcher.
+- **Just ran the catcher and still seeing this** → check `~/.claude/secrets/meta-oauth-token-longlived.json` exists and `META_ACCESS_TOKEN` in `~/.claude.json` matches its `access_token` value. Run `node scripts/write-mcp-config.mjs <act_...>` to re-sync.
 
 ---
 
-## 4. Claude says "I don't see a meta-ads tool" even after restart
+## 5. `{"error":{"code":100,"message":"Unsupported get request"}}` on `/me/adaccounts`
+
+Your token is missing the `ads_read` scope. The catcher requests scopes `ads_management, ads_read, business_management, catalog_management, pages_show_list` by default — if you customised this or rejected scopes in the Authorize dialog, you'll get this error.
+
+**Fix:** re-run `python3 scripts/oauth-catcher.py <APP_ID> <APP_SECRET>` and accept ALL scopes when Facebook asks.
+
+---
+
+## 6. Claude says "I don't see a meta-ads tool" even after restart
 
 Three checks:
 
-1. Did you **completely quit** Claude Code? On Mac, Cmd+Q. On Windows, right-click the taskbar icon → Exit. Closing the window is not enough.
-2. Open `~/.claude.json` in a text editor. Confirm there's a `meta-ads` entry under `mcpServers` with a real token in `META_ACCESS_TOKEN` (not the literal text `your_access_token_here`).
-3. Run `meta-ads-mcp` from your terminal by hand. If it errors before Claude even launches it, that's the problem — fix it first.
+1. Did you **fully quit** Claude? On Mac, **Cmd+Q** (not just close the window). On Windows, right-click the taskbar icon → Exit.
+2. Open `~/.claude.json` in a text editor. Confirm there's a `meta-ads` entry under `mcpServers` with a real token in `META_ACCESS_TOKEN` (not the literal text `your_access_token_here` or empty).
+3. Run `meta-ads-mcp` from your terminal by hand. If it errors before Claude even launches it, that's the problem — fix that first.
 
 ---
 
-## 5. "App is in Development Mode" — only my own ads are visible
+## 7. "App is in Development Mode. Take it Live?" / "Privacy Policy URL required"
 
-Meta apps start in **Development Mode** which restricts them to app admins. That's fine for you connecting YOUR OWN ad account — no action needed.
+**Don't take it Live. Stay in Development Mode.**
 
-You only need to switch to Live Mode if you're building an app that other people will use. For a personal Claude connection, stay in Development.
+Development Mode restricts the app to its admins (you), which is exactly what you want — you're connecting YOUR ad account, not building an app for other users. Live Mode would force you through app review for the `ads_management` scope, which takes weeks.
+
+Ignore the "Privacy Policy URL required" warning. It only applies if you try to go Live. Stay in Dev, stay happy.
 
 ---
 
-## 6. Playwright can't open Facebook (stuck on a blank page)
+## 8. `401 "This resource is restricted to certain users"` from `mcp.facebook.com/ads`
 
-Facebook sometimes blocks automated browsers. Two fixes:
+You're trying to use Meta's hosted MCP directly with your own OAuth token. Meta has a private allowlist of clients allowed to hit `mcp.facebook.com/ads` — Anthropic's claude.ai web client is on it, third-party apps aren't.
 
-1. Use your real Chrome profile — tell Claude: "use my real Chrome, not the Playwright browser". This needs Playwright MCP to be configured with `--browser=chrome --user-data-dir=~/Library/Application Support/Google/Chrome`.
-2. Fall back to manual mode — follow [INSTALL.md](INSTALL.md) and do the browser steps yourself. Claude can still do the token exchange and config write parts.
+**This is expected, not a bug.** Two options:
+
+1. **Use claude.ai web** (Part 1 of [INSTALL.md](INSTALL.md)) — works because Anthropic handles OAuth via their pre-registered client.
+2. **Use the legacy `meta-ads-mcp` npm path** in Claude Code CLI (Part 2 of INSTALL.md) — uses YOUR token directly against Marketing API, bypasses the allowlist entirely.
+
+You can do both. They don't conflict.
 
 ---
 
 ## Still stuck?
 
-Reply to the SMS or email that sent you this kit. I'll jump in and help directly.
+Reply to the SMS or email that sent you this kit. Include:
+
+- The exact error message
+- Which step number you were on
+- Output of `node -v` and `python3 -V`
+
+I'll jump in.

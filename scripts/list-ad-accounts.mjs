@@ -28,7 +28,7 @@ if (!token) {
   process.exit(1);
 }
 
-const url = new URL("https://graph.facebook.com/v20.0/me/adaccounts");
+const url = new URL("https://graph.facebook.com/v23.0/me/adaccounts");
 url.searchParams.set("access_token", token);
 url.searchParams.set("fields", "account_id,name,account_status,currency,business_name");
 url.searchParams.set("limit", "50");

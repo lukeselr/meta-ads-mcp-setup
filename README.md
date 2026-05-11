@@ -1,16 +1,21 @@
 # Meta Ads MCP Setup
 
-Connect your Meta (Facebook + Instagram) ad account to Claude in about 10 minutes. Claude then runs, pauses, scales, and reports on your ads in plain English — no Ads Manager clicking required.
+Connect your Meta (Facebook + Instagram) ad account to Claude. Claude then runs, pauses, scales, and reports on your ads in plain English — no Ads Manager clicking required.
 
-**Works with:** Claude Code (Mac/Windows terminal) and Claude Desktop.
-**Needs:** A Meta Business Manager, admin access to the ad account you want to connect, a browser you can log into Facebook from.
-**Cost:** Free. All open-source.
+**Two paths, pick what you use.** Most people want both.
+
+| Where you use Claude | Path | Time | Token to manage? |
+|---|---|---|---|
+| **claude.ai web** | Custom Connector → Meta's official MCP | 30 sec | No (Anthropic handles OAuth) |
+| **Claude Code CLI** | Legacy `meta-ads-mcp` npm + your own OAuth token | 10 min | Yes (60-day refresh, scripts provided) |
+
+**Why two paths?** Meta has a private allowlist for the official MCP at `mcp.facebook.com/ads`. Anthropic's web client is on it; third-party CLI clients aren't yet. Use the official path where it works (claude.ai web), use the legacy path where it doesn't (Claude Code CLI). When Meta opens the allowlist OR Anthropic ships a built-in Meta client for the CLI, you migrate cleanly.
 
 ---
 
 ## What you get at the end
 
-- Claude can list your campaigns, ad sets and ads
+- Claude can list your campaigns, ad sets, and ads
 - Claude can read performance (spend, CPA, CPC, ROAS, etc.) for any date range
 - Claude can pause or resume campaigns
 - Claude can estimate audience sizes before you launch
@@ -20,9 +25,9 @@ You ask in English, Claude does it.
 
 ---
 
-## Two ways to run this
+## Pick your path
 
-### Option A — "Hands-off" (recommended if you're on Claude Code)
+### Option A — "Hands-off" via Claude Code
 
 Paste this one line into Claude Code:
 
@@ -30,71 +35,52 @@ Paste this one line into Claude Code:
 Run the skill at https://github.com/lukeselr/meta-ads-mcp-setup — connect my Meta Ads to Claude end to end. Open pages for me, tell me exactly what to click, do the rest yourself.
 ```
 
-Claude reads this repo, drives your browser via Playwright, walks you through the Facebook side, captures your token, writes your config, tests the connection, and tells you when it's done. You only press **Login**, **Continue**, and **Copy** buttons when it asks you to.
+Claude reads this repo, walks you through, drives the OAuth catcher, writes your config, tests the connection. You click "Authorize" once in Facebook; that's it.
 
-Total clicks from you: roughly 8.
+### Option B — "Manual" (follow INSTALL.md yourself)
 
-### Option B — "Manual" (if you're on Claude Desktop or don't want the browser automation)
+Open [INSTALL.md](INSTALL.md) — same steps, you do the clicks. ~10 min. Recommended if you're on Claude Desktop (which can't run Playwright) or want to understand exactly what's happening.
 
-Follow [INSTALL.md](INSTALL.md) — same steps, you do the clicks yourself. Takes ~15 min.
+### Option C — claude.ai web only (30 seconds)
 
----
-
-## What Claude does vs what you do
-
-| Step | Who does it |
-|---|---|
-| Check Node.js is installed | Claude |
-| Install `meta-ads-mcp` | Claude |
-| Open Meta for Developers in your browser | Claude (Playwright) |
-| Log into Facebook | **You** |
-| Create a new Meta App (Business type) | Claude clicks, you name it |
-| Add the Marketing API product | Claude |
-| Open the Access Token Tool | Claude |
-| Tick `ads_read` + `ads_management` scopes | Claude |
-| Click **Generate Access Token** | **You** (Meta requires it) |
-| Copy the token into Claude | Claude reads it from the page |
-| Paste your App ID + App Secret | **You** (one copy-paste from Meta's settings page) |
-| Exchange short token → 60-day long-lived token | Claude |
-| List your ad accounts | Claude |
-| Pick an account (if you have multiple) | **You** (type a number) |
-| Write the MCP config | Claude |
-| Test the connection | Claude |
-| Restart Claude Code | **You** |
-
-You press roughly 8 buttons total. Claude does the other 30 steps.
+If you never use Claude Code CLI, just do Part 1 of INSTALL.md — paste `https://mcp.facebook.com/ads` into claude.ai's Settings → Connectors → Add custom connector. Done.
 
 ---
 
 ## Requirements
 
-- **Node.js 18+** — if `node -v` prints nothing, install from [nodejs.org](https://nodejs.org) first
-- **Claude Code** — download at [claude.com/product/claude-code](https://claude.com/product/claude-code)
-- **Playwright MCP** (for hands-off mode) — Claude will install it if missing
-- **Meta Business Manager** with admin access — if you don't have one yet, create it at [business.facebook.com](https://business.facebook.com)
-- **An ad account inside that Business Manager** — the thing that starts with `act_`
+- **Node.js 18+** — if `node -v` prints nothing, install from [nodejs.org](https://nodejs.org/)
+- **Python 3.9+** — built into macOS, no install needed
+- **Meta Business Manager** with admin access — if you don't have one, create at [business.facebook.com](https://business.facebook.com)
+- **An ad account** inside that Business Manager (the thing starting with `act_`)
 
 ---
 
 ## What gets written where
 
-Two files on your machine, nothing else:
+- `~/.claude.json` — Claude Code config gets a `meta-ads` entry under `mcpServers`
+- `~/.claude/secrets/meta-oauth-token-longlived.json` — your 60-day token (chmod 600)
+- `~/.claude/secrets/meta-mcp-app.json` (optional) — App ID + Secret for refresh script
+- macOS Keychain (optional) — App Secret backup
 
-1. `~/.claude.json` — your Claude Code config gets one new entry under `mcpServers.meta-ads`
-2. `~/.meta-ads-mcp-token.json` — your long-lived token, readable only by you (chmod 600)
-
-Nothing is uploaded anywhere. Your token never leaves your machine. This repo has zero API keys or credentials baked in.
+Nothing is uploaded. Your token never leaves your machine. This repo has zero API keys or credentials baked in.
 
 ---
 
 ## Troubleshooting
 
-Open [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — covers the 6 things that usually go wrong and how to fix each one.
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md) covers the 8 things that actually break + the exact fix for each. Read this before asking for help.
+
+---
+
+## When your token expires
+
+Every 60 days. Re-run `python3 scripts/oauth-catcher.py <APP_ID> <APP_SECRET>` → 30 seconds, one click. Done.
 
 ---
 
 ## License
 
-MIT. Built in Australia by [Selr AI](https://selrai.com.au) — we build AI agents for Australian businesses. Shared with the crew from the Sydney workshop, April 2026.
+MIT. Built in Australia by [Selr AI](https://selrai.com.au) — we build AI agents for Australian businesses. Shared with the workshop crew, refreshed May 2026 with all the gotchas the founder hit personally.
 
-Want the full-stack version (Meta Ads + Google Ads + Shopify + Klaviyo + GHL all talking to Claude at once)? See [selrai.com.au/workshops](https://selrai.com.au/workshops).
+Want the full stack — Meta Ads + Google Ads + Shopify + Klaviyo + GHL all talking to Claude at once? See [selrai.com.au/workshops](https://selrai.com.au/workshops).

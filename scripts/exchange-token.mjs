@@ -19,7 +19,7 @@ if (!appId || !appSecret || !shortToken) {
   process.exit(1);
 }
 
-const url = new URL("https://graph.facebook.com/v20.0/oauth/access_token");
+const url = new URL("https://graph.facebook.com/v23.0/oauth/access_token");
 url.searchParams.set("grant_type", "fb_exchange_token");
 url.searchParams.set("client_id", appId);
 url.searchParams.set("client_secret", appSecret);

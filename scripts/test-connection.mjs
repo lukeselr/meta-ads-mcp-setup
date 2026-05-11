@@ -45,7 +45,7 @@ console.log(`Testing token against ${adAccountId}...`);
 
 // 1. /me — confirms token is valid at all
 const meRes = await fetch(
-  `https://graph.facebook.com/v20.0/me?fields=id,name&access_token=${encodeURIComponent(token)}`
+  `https://graph.facebook.com/v23.0/me?fields=id,name&access_token=${encodeURIComponent(token)}`
 );
 const meBody = await meRes.json();
 if (!meRes.ok || !meBody.id) {
@@ -57,7 +57,7 @@ console.log(`  /me OK — logged in as user id ${meBody.id}`);
 
 // 2. /act_xxx — confirms token has access to the chosen ad account
 const acctRes = await fetch(
-  `https://graph.facebook.com/v20.0/${adAccountId}?fields=name,account_status,currency,amount_spent&access_token=${encodeURIComponent(token)}`
+  `https://graph.facebook.com/v23.0/${adAccountId}?fields=name,account_status,currency,amount_spent&access_token=${encodeURIComponent(token)}`
 );
 const acctBody = await acctRes.json();
 if (!acctRes.ok || !acctBody.name) {
@@ -69,7 +69,7 @@ console.log(`  ${adAccountId} OK — "${acctBody.name}", currency ${acctBody.cur
 
 // 3. /act_xxx/campaigns — confirms ads_read scope is really working
 const campRes = await fetch(
-  `https://graph.facebook.com/v20.0/${adAccountId}/campaigns?fields=id,name,status&limit=3&access_token=${encodeURIComponent(token)}`
+  `https://graph.facebook.com/v23.0/${adAccountId}/campaigns?fields=id,name,status&limit=3&access_token=${encodeURIComponent(token)}`
 );
 const campBody = await campRes.json();
 if (!campRes.ok) {
