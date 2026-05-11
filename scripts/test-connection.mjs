@@ -12,21 +12,23 @@
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { loadToken } from "./_load-token.mjs";
 
-const tokenPath = join(homedir(), ".meta-ads-mcp-token.json");
 const claudeConfigPath = join(homedir(), ".claude.json");
 
-if (!existsSync(tokenPath)) {
-  console.error(`No token file at ${tokenPath}. Run exchange-token.mjs first.`);
+let token;
+try {
+  ({ token } = loadToken());
+} catch (e) {
+  console.error(e.message);
   process.exit(1);
 }
+
 if (!existsSync(claudeConfigPath)) {
   console.error(`No ~/.claude.json. Run write-mcp-config.mjs first.`);
   process.exit(1);
 }
 
-const tokenFile = JSON.parse(readFileSync(tokenPath, "utf8"));
-const token = tokenFile.long_lived_access_token;
 const config = JSON.parse(readFileSync(claudeConfigPath, "utf8"));
 const metaEntry = config.mcpServers?.["meta-ads"];
 
