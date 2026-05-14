@@ -138,8 +138,8 @@ You'll see something like:
 ```json
 {
   "accounts": [
-    { "index": 1, "act": "act_491282504733048", "name": "Your Business", "status": "ACTIVE" },
-    { "index": 2, "act": "act_887766554433221", "name": "Side Project", "status": "ACTIVE" }
+    { "index": 1, "act": "act_123456789012345", "name": "Your Business", "status": "ACTIVE" },
+    { "index": 2, "act": "act_987654321098765", "name": "Side Project", "status": "ACTIVE" }
   ]
 }
 ```
@@ -149,7 +149,7 @@ Note the `act_...` ID you want Claude to control by default.
 ### Step 6 — Write the MCP config (10 sec)
 
 ```bash
-node scripts/write-mcp-config.mjs act_491282504733048
+node scripts/write-mcp-config.mjs act_123456789012345
 ```
 
 (replace with YOUR `act_...` from Step 5)
@@ -166,7 +166,7 @@ This adds a `meta-ads` entry under `mcpServers` in `~/.claude.json` (and `~/.mcp
       "args": [],
       "env": {
         "META_ACCESS_TOKEN": "<paste access_token from ~/.claude/secrets/meta-oauth-token-longlived.json>",
-        "META_AD_ACCOUNT_ID": "act_491282504733048"
+        "META_AD_ACCOUNT_ID": "act_123456789012345"
       }
     }
   }
